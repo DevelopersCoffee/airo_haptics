@@ -1,9 +1,12 @@
 import 'package:equatable/equatable.dart';
 
+import 'haptic_strength.dart';
+
 /// Global configuration settings for the Airo Haptics engine.
 class AiroHapticSettings extends Equatable {
   const AiroHapticSettings({
     this.enabled = true,
+    this.strength = AiroHapticStrength.medium,
     this.globalScale = 1.0,
     this.respectSystemSettings = true,
     this.reducedMotion = false,
@@ -15,6 +18,7 @@ class AiroHapticSettings extends Equatable {
   factory AiroHapticSettings.fromJson(Map<String, dynamic> json) {
     return AiroHapticSettings(
       enabled: json['enabled'] as bool? ?? true,
+      strength: AiroHapticStrength.fromName(json['strength'] as String?),
       globalScale: (json['globalScale'] as num?)?.toDouble() ?? 1.0,
       respectSystemSettings: json['respectSystemSettings'] as bool? ?? true,
       reducedMotion: json['reducedMotion'] as bool? ?? false,
@@ -26,6 +30,9 @@ class AiroHapticSettings extends Equatable {
 
   /// Master toggle enabling or disabling all haptic output globally.
   final bool enabled;
+
+  /// User strength preference (off / soft / medium / strong).
+  final AiroHapticStrength strength;
 
   /// Master volume/intensity scale factor (0.0 to 1.0).
   final double globalScale;
@@ -47,6 +54,7 @@ class AiroHapticSettings extends Equatable {
 
   AiroHapticSettings copyWith({
     bool? enabled,
+    AiroHapticStrength? strength,
     double? globalScale,
     bool? respectSystemSettings,
     bool? reducedMotion,
@@ -56,6 +64,7 @@ class AiroHapticSettings extends Equatable {
   }) {
     return AiroHapticSettings(
       enabled: enabled ?? this.enabled,
+      strength: strength ?? this.strength,
       globalScale: globalScale ?? this.globalScale,
       respectSystemSettings: respectSystemSettings ?? this.respectSystemSettings,
       reducedMotion: reducedMotion ?? this.reducedMotion,
@@ -67,6 +76,7 @@ class AiroHapticSettings extends Equatable {
 
   Map<String, dynamic> toJson() => {
         'enabled': enabled,
+        'strength': strength.name,
         'globalScale': globalScale,
         'respectSystemSettings': respectSystemSettings,
         'reducedMotion': reducedMotion,
@@ -78,6 +88,7 @@ class AiroHapticSettings extends Equatable {
   @override
   List<Object?> get props => [
         enabled,
+        strength,
         globalScale,
         respectSystemSettings,
         reducedMotion,

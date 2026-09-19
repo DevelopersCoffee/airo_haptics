@@ -12,6 +12,7 @@ import 'models/haptic_options.dart';
 import 'models/haptic_pattern.dart';
 import 'models/haptic_profile.dart';
 import 'models/haptic_settings.dart';
+import 'models/haptic_strength.dart';
 import 'models/haptic_theme.dart';
 import 'platform/airo_haptics_platform.dart';
 
@@ -40,6 +41,44 @@ class AiroHaptics {
       globalScale: profile.intensityScale,
       minThrottleDuration: profile.minThrottleWindow,
     );
+  }
+
+  static AiroHapticStrengthStore? _strengthStore;
+
+  /// Current user strength preference.
+  static AiroHapticStrength get strength => _settings.strength;
+
+  /// Sets the user strength preference without persisting it.
+  ///
+  /// Profile changes never reset it: [profile] only changes the profile scale.
+  static set strength(AiroHapticStrength value) {
+    _settings = _settings.copyWith(strength: value);
+    _pushSettings();
+  }
+
+  /// Sets the strength and persists it to the attached [AiroHapticStrengthStore].
+  static Future<void> setStrength(AiroHapticStrength value) async {
+    strength = value;
+    try {
+      await _strengthStore?.write(value.name);
+    } catch (_) {
+      // Persistence must never break feedback.
+    }
+  }
+
+  /// Attaches [store], restores the saved strength and persists future changes.
+  static Future<void> useStrengthStore(AiroHapticStrengthStore store) async {
+    _strengthStore = store;
+    try {
+      final saved = await store.read();
+      if (saved != null) strength = AiroHapticStrength.fromName(saved);
+    } catch (_) {
+      // Keep the current strength when storage is unavailable.
+    }
+  }
+
+  static void _pushSettings() {
+    AiroHapticsPlatform.instance.updateSettings(_settings).catchError((_) {});
   }
 
   /// Updates global engine configuration.
@@ -140,10 +179,17 @@ class AiroHaptics {
 
     if (!allowed) return;
 
-    await AiroHapticsPlatform.instance.performFeedback(
-      type,
-      options: options,
+    // Native backends read the resolved strength from options so the profile,
+    // user strength and reduced-motion scale are all honoured.
+    final scaled = AiroHapticOptions(
+      intensity: decision.effectiveIntensity,
+      sharpness: options?.sharpness,
+      priority: options?.priority ?? AiroHapticPriority.normal,
+      cooldown: options?.cooldown,
+      tag: options?.tag,
+      audioSync: options?.audioSync ?? false,
     );
+    await AiroHapticsPlatform.instance.performFeedback(type, options: scaled);
   }
 
   /// Triggers a physical impact feedback pulse.

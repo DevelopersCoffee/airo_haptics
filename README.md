@@ -31,6 +31,25 @@ A cross-platform Flutter haptics engine with semantic feedback, custom patterns,
 
 ---
 
+## User Strength Setting
+
+Let people choose how hard feedback feels, or turn it off:
+
+```dart
+// Restore + persist the choice (implement AiroHapticStrengthStore with your storage).
+await AiroHaptics.useStrengthStore(MyStore());
+
+// In settings UI:
+AiroHapticStrengthPicker(
+  value: AiroHaptics.strength,
+  onChanged: AiroHaptics.setStrength,
+);
+```
+
+`medium` leaves intensities unchanged, `soft` halves them, `strong` boosts them (clamped to 1.0) and `off` silences the engine. Strength multiplies with the tuning profile and reduced-motion scale.
+
+**Android feels weak?** Devices without amplitude control fall back to predefined effects; choose `strong`. Check `AiroHaptics.capabilities` (`variableIntensity`).
+
 ## Quick Start
 
 ```dart

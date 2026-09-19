@@ -1,5 +1,6 @@
 import 'package:airo_haptics/airo_haptics.dart';
 import 'package:airo_haptics/testing.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -137,4 +138,88 @@ void main() {
       expect(fakePlatform.isStopped, isTrue);
     });
   });
+
+  group('AiroHapticStrength', () {
+    setUp(() => AiroHaptics.strength = AiroHapticStrength.medium);
+
+    test('off suppresses semantic, impact and pattern output', () async {
+      AiroHaptics.strength = AiroHapticStrength.off;
+      await AiroHaptics.confirm();
+      await AiroHaptics.heavy();
+      await AiroHaptics.playPattern(AiroHapticPattern.doubleClick());
+      expectNoHapticPlayed(fakePlatform);
+    });
+
+    test('semantic feedback carries the scaled intensity to the platform', () async {
+      Future<double?> sent(AiroHapticStrength strength) async {
+        fakePlatform.clearInvocations();
+        AiroHaptics.strength = strength;
+        await AiroHaptics.updateSettings(
+          AiroHaptics.settings.copyWith(minThrottleDuration: Duration.zero),
+        );
+        await AiroHaptics.confirm();
+        return fakePlatform.invocations.last.options?.intensity;
+      }
+
+      final soft = await sent(AiroHapticStrength.soft);
+      final medium = await sent(AiroHapticStrength.medium);
+      final strong = await sent(AiroHapticStrength.strong);
+      expect(soft, lessThan(medium!));
+      expect(strong, greaterThanOrEqualTo(medium));
+      expect(strong, lessThanOrEqualTo(1.0));
+    });
+
+    test('profile changes do not reset the chosen strength', () {
+      AiroHaptics.strength = AiroHapticStrength.strong;
+      AiroHaptics.profile = AiroHapticProfile.media;
+      expect(AiroHaptics.strength, AiroHapticStrength.strong);
+      expect(AiroHaptics.settings.globalScale, AiroHapticProfile.media.intensityScale);
+    });
+
+    test('fromName falls back to medium and settings round-trip json', () {
+      expect(AiroHapticStrength.fromName('nope'), AiroHapticStrength.medium);
+      expect(AiroHapticStrength.fromName(null), AiroHapticStrength.medium);
+      const settings = AiroHapticSettings(strength: AiroHapticStrength.soft);
+      expect(AiroHapticSettings.fromJson(settings.toJson()).strength, AiroHapticStrength.soft);
+    });
+
+    test('store restores the saved strength and persists changes', () async {
+      final store = _MemoryStore('strong');
+      await AiroHaptics.useStrengthStore(store);
+      expect(AiroHaptics.strength, AiroHapticStrength.strong);
+      await AiroHaptics.setStrength(AiroHapticStrength.soft);
+      expect(store.value, 'soft');
+    });
+  });
+
+  group('AiroHapticStrengthPicker', () {
+    testWidgets('lists every level and reports the selection', (tester) async {
+      AiroHapticStrength? picked;
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: AiroHapticStrengthPicker(
+            value: AiroHapticStrength.medium,
+            onChanged: (s) => picked = s,
+          ),
+        ),
+      ));
+      for (final s in AiroHapticStrength.values) {
+        expect(find.byKey(ValueKey('haptic-strength-${s.name}')), findsOneWidget);
+      }
+      await tester.tap(find.byKey(const ValueKey('haptic-strength-off')));
+      await tester.pump();
+      expect(picked, AiroHapticStrength.off);
+    });
+  });
+}
+
+class _MemoryStore implements AiroHapticStrengthStore {
+  _MemoryStore(this.value);
+  String? value;
+
+  @override
+  Future<String?> read() async => value;
+
+  @override
+  Future<void> write(String name) async => value = name;
 }

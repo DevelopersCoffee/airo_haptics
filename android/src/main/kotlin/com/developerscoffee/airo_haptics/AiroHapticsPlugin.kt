@@ -67,7 +67,9 @@ class AiroHapticsPlugin : FlutterPlugin, MethodCallHandler {
       }
       "performFeedback" -> {
         val type = call.argument<String>("type") ?: "selection"
-        vibrateSemantic(currentVibrator, type)
+        val options = call.argument<Map<String, Any>>("options")
+        val intensity = (options?.get("intensity") as? Number)?.toDouble() ?: 1.0
+        vibrateSemantic(currentVibrator, type, intensity)
         result.success(null)
       }
       "performImpact" -> {
@@ -113,14 +115,32 @@ class AiroHapticsPlugin : FlutterPlugin, MethodCallHandler {
     }
   }
 
-  private fun vibrateSemantic(vib: Vibrator, type: String) {
+  private fun vibrateSemantic(vib: Vibrator, type: String, intensity: Double) {
+    val level = intensity.coerceIn(0.0, 1.0)
+    if (level <= 0.0) return
+
+    // Amplitude-controlled motors: a one-shot with explicit strength is far more
+    // noticeable (and user-scalable) than the predefined TICK/CLICK effects.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vib.hasAmplitudeControl()) {
+      val duration = when (type) {
+        "selection", "focus" -> 18L
+        "press", "navigation" -> 25L
+        "success", "completion" -> 45L
+        "error", "failure", "delete", "reject", "warning", "heavy" -> 80L
+        else -> 35L
+      }
+      val amplitude = (level * 255).toInt().coerceIn(1, 255)
+      vib.vibrate(VibrationEffect.createOneShot(duration, amplitude))
+      return
+    }
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      val strong = level >= 0.6
       val effectId = when (type) {
-        "selection", "focus", "press" -> VibrationEffect.EFFECT_TICK
-        "impact", "confirm", "toggleOn", "toggleOff" -> VibrationEffect.EFFECT_CLICK
-        "heavy", "error", "failure", "delete", "reject" -> VibrationEffect.EFFECT_HEAVY_CLICK
+        "selection", "focus" -> if (strong) VibrationEffect.EFFECT_CLICK else VibrationEffect.EFFECT_TICK
+        "error", "failure", "delete", "reject", "warning", "heavy" -> VibrationEffect.EFFECT_HEAVY_CLICK
         "doubleClick" -> VibrationEffect.EFFECT_DOUBLE_CLICK
-        else -> VibrationEffect.EFFECT_CLICK
+        else -> if (strong) VibrationEffect.EFFECT_HEAVY_CLICK else VibrationEffect.EFFECT_CLICK
       }
       try {
         vib.vibrate(VibrationEffect.createPredefined(effectId))
@@ -128,14 +148,13 @@ class AiroHapticsPlugin : FlutterPlugin, MethodCallHandler {
       } catch (_: Exception) {}
     }
 
-    val duration = when (type) {
-      "selection", "focus" -> 15L
-      "light", "soft" -> 25L
-      "medium", "confirm" -> 40L
-      "heavy", "error", "failure", "delete" -> 70L
-      else -> 30L
+    val base = when (type) {
+      "selection", "focus" -> 20L
+      "light", "soft" -> 30L
+      "error", "failure", "delete", "heavy" -> 80L
+      else -> 45L
     }
-    vibrateLegacy(vib, duration)
+    vibrateLegacy(vib, (base * (0.5 + level)).toLong().coerceAtLeast(15L))
   }
 
   private fun vibrateImpact(vib: Vibrator, impact: String, intensity: Double) {

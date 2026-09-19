@@ -43,6 +43,10 @@ class AiroHapticResolver {
       return const ResolvedHapticDecision.skip('Engine disabled globally in settings');
     }
 
+    if (!settings.strength.isOn) {
+      return const ResolvedHapticDecision.skip('Haptic strength set to off');
+    }
+
     if (!capabilities.supported) {
       return const ResolvedHapticDecision.skip('Hardware or platform does not support haptics');
     }
@@ -52,7 +56,7 @@ class AiroHapticResolver {
     final requestedSharpness = options?.sharpness ?? baseSharpness;
 
     final reducedScale = settings.reducedMotion ? 0.5 : 1.0;
-    final effectiveIntensity = (requestedIntensity * settings.globalScale * theme.intensityScale * reducedScale)
+    final effectiveIntensity = (requestedIntensity * settings.globalScale * settings.strength.scale * theme.intensityScale * reducedScale)
         .clamp(0.0, 1.0);
     final effectiveSharpness = requestedSharpness.clamp(0.0, 1.0);
 

@@ -16,6 +16,8 @@ export 'src/models/haptic_options.dart';
 export 'src/models/haptic_pattern.dart';
 export 'src/models/haptic_profile.dart';
 export 'src/models/haptic_settings.dart';
+export 'src/models/haptic_strength.dart';
 export 'src/models/haptic_theme.dart';
 export 'src/platform/airo_haptics_platform.dart';
 export 'src/platform/method_channel_airo_haptics.dart';
+export 'src/widgets/haptic_strength_picker.dart';

@@ -58,7 +58,9 @@ public class AiroHapticsPlugin: NSObject, FlutterPlugin {
         result(nil)
         return
       }
-      triggerSemanticFeedback(type)
+      let options = args["options"] as? [String: Any]
+      let intensity = (options?["intensity"] as? Double) ?? 1.0
+      triggerSemanticFeedback(type, intensity: intensity)
       result(nil)
     case "performImpact":
       guard let args = call.arguments as? [String: Any],
@@ -121,10 +123,15 @@ public class AiroHapticsPlugin: NSObject, FlutterPlugin {
     generator.selectionChanged()
   }
 
-  private func triggerSemanticFeedback(_ type: String) {
+  private func triggerSemanticFeedback(_ type: String, intensity: Double) {
+    if intensity <= 0.0 { return }
     switch type {
     case "selection", "focus", "press":
-      triggerSelection()
+      if intensity < 0.9 {
+        triggerImpact(style: .light, intensity: CGFloat(intensity))
+      } else {
+        triggerSelection()
+      }
     case "success", "completion":
       let generator = UINotificationFeedbackGenerator()
       generator.prepare()
@@ -142,7 +149,7 @@ public class AiroHapticsPlugin: NSObject, FlutterPlugin {
     case "heavy", "rigid":
       triggerImpact(style: .heavy, intensity: 1.0)
     default:
-      triggerImpact(style: .medium, intensity: 0.7)
+      triggerImpact(style: .medium, intensity: CGFloat(min(1.0, 0.7 + intensity * 0.3)))
     }
   }
 
